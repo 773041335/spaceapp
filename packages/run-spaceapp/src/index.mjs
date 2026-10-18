@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import {
   chmod,
@@ -21,6 +22,8 @@ import { UNIVERSAL_COMMAND } from "./package-info.mjs";
 
 const CONFIG_SCHEMA_VERSION = 4;
 const CONTAINER_SECRET_MODE = 0o644;
+export const SUPPORTED_ENGINES = Object.freeze(["docker", "podman"]);
+export const DEFAULT_ENGINE = "docker";
 export const MIN_INSTALL_FREE_DISK_BYTES_STANDARD = 15 * 1024 ** 3;
 export const MIN_INSTALL_FREE_DISK_BYTES_LIGHT = 7 * 1024 ** 3;
 export const MIN_INSTALL_FREE_DISK_BYTES = MIN_INSTALL_FREE_DISK_BYTES_STANDARD;
@@ -87,6 +90,22 @@ export const PROFILE_REQUIREMENTS = Object.freeze({
   light: { cpuCount: 4, memoryBytes: 7 * 1024 ** 3, freshDiskBytes: 8 * 1024 ** 3 },
   standard: { cpuCount: 4, memoryBytes: 7 * 1024 ** 3, freshDiskBytes: 11 * 1024 ** 3 }
 });
+
+export function normalizeEngine(value) {
+  if (value === undefined || value === null || value === "") return DEFAULT_ENGINE;
+  const engine = String(value).trim().toLowerCase();
+  if (!SUPPORTED_ENGINES.includes(engine)) {
+    throw new Error(`Container engine must be one of: ${SUPPORTED_ENGINES.join(", ")}.`);
+  }
+  return engine;
+}
+
+export function composeCommand(engine = DEFAULT_ENGINE) {
+  const normalized = normalizeEngine(engine);
+  return normalized === "podman"
+    ? { command: "podman", args: ["compose"] }
+    : { command: "docker", args: ["compose"] };
+}
 
 export function profileRuntimeSettings(profile) {
   const settings = PROFILE_RUNTIME_SETTINGS[profile];
